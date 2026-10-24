@@ -299,6 +299,8 @@ predictDomestic(s, T):
 - *Rate-table mode* (if `rateTable` configured): `rateFn(W) = W ≤ 0 ? 0 : firstFee + ceil(max(0, W − firstKg) / stepKg) · stepFee`. From each singleton's consolidation fee `f_i`, invert `rateFn` to a weight bracket `(lo_i, hi_i]`; use `mid_i`. `W(S) = α · Σ mid_i`, `predictIntl = rateFn(W(S))`. Fit `α ∈ [0.6, 1.1]` (grid step 0.02) by minimizing squared error on all verified multi-item quotes. If any `f_i` does not lie on the rate lattice (±¥0.5), switch to marginal mode and mark the model "uncalibrated" in debug view.
 - *Marginal mode* (default, no rate table): `F0 = min_i f_i` (approximates the first-weight fee). `predictIntl(S) = F0 + Σ_{i∈S} (f_i − F0)` adjusted by learned scale `β` fitted the same way. This captures the main effect: the first-weight charge is paid once per group.
 
+*Latent mode (T9, used by the heuristic when no rate table; `feeModel.ts`).* Infers the fee lattice step from the cheapest half of observed fees, then samples (48) latent per-item weights consistent with every observed fee and over-weight (infeasible) mask. `predictFee(mask)` is the sample mean; `samplesO(mask)` exposes per-sample overhead so the verify loop can score by expected improvement. Coupon thresholds/amounts are learned from observed applied coupons (`couponOptions`). Known bias: it over-predicts unprobed multi-item fees by about ¥6.5 on average (growing with mask size).
+
 If the breakdown (A-4) is unavailable, the model works on overhead only: treat `O({i})` as `f_i` in marginal mode, and treat the per-shop domestic as 0 except via observed groups. Predictions get weaker, but results stay correct because only verified quotes are ranked.
 
 ### 7.4 Verify loop
@@ -316,6 +318,8 @@ loop:
       restart loop
   stop when no candidate passes the filter, or budget exhausted
 ```
+
+T9 change: the epsilon filter and early stop were removed; the loop always spends the budget. Candidates come from exhaustive enumeration over predictions when popcount(E) <= 10 (A, all partitions with <= K_MAX blocks) or <= 12 (B, all subsets), ranked by expected improvement over the verified best (`exhaustiveCands.ts`, top 300), else from §7.6 local search. Block to probe: A, unprobed block with the largest sample sd; B, first unprobed candidate. If nothing is rankable (model says every partition infeasible), a soft fallback replaces infinite samples with a large finite penalty so probing continues.
 
 Each iteration probes exactly one selection so the model learns between probes.
 

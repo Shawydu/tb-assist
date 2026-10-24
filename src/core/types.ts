@@ -68,6 +68,8 @@ export interface SearchParams {
   maxProbes: number;
   strategyB?: 'heuristic' | 'topDownGreedy';
   rateTable?: RateTable; // FR-12.5, model only
+  /** Seed for the heuristic's local search; default derived from the lineIds. */
+  seed?: number;
 }
 
 export interface ResultA {
@@ -94,7 +96,7 @@ export interface Run {
   params: SearchParams;
   probesUsed: number;
   engineState: unknown; // serialized SearchEngine state (NFR-6)
-  results?: { exact: boolean; A?: ResultA[]; B?: ResultB[] };
+  results?: { exact: boolean; A?: ResultA[]; B?: ResultB[]; ineligible?: string[] };
 }
 
 /** A parse failure that names the offending field (NFR-3). */
