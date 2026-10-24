@@ -1,0 +1,7 @@
+*.md
+.output
+.wxt
+node_modules
+test-results
+playwright-report
+package-lock.json
